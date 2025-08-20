@@ -25,7 +25,16 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
 });
-app.use(cors());
+// --- GỠ LỖI CORS ---
+// In ra giá trị biến môi trường để kiểm tra khi server khởi động
+console.log(`[CORS DEBUG] FRONTEND_URL from environment: ${process.env.FRONTEND_URL}`);
+
+// Cấu hình CORS một cách tường minh và an toàn
+const corsOptions = {
+    origin: process.env.FRONTEND_URL, // Chỉ chấp nhận yêu cầu từ địa chỉ này
+    optionsSuccessStatus: 200 // For legacy browser support
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // --- API CÔNG KHAI TẠM THỜI ĐỂ TẠO HASH ---
