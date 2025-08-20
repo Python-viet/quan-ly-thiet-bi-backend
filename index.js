@@ -16,7 +16,6 @@ const authenticateToken = require('./middleware/authenticateToken');
 const authorizeRoles = require('./middleware/authorizeRoles'); // <-- Import
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -25,16 +24,10 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
 });
-// --- GỠ LỖI CORS ---
-// In ra giá trị biến môi trường để kiểm tra khi server khởi động
-console.log(`[CORS DEBUG] FRONTEND_URL from environment: ${process.env.FRONTEND_URL}`);
-
-// Cấu hình CORS một cách tường minh và an toàn
-const corsOptions = {
-    origin: process.env.FRONTEND_URL, // Chỉ chấp nhận yêu cầu từ địa chỉ này
-    optionsSuccessStatus: 200 // For legacy browser support
-};
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: "https://quan-ly-thiet-bi-frontend.vercel.app",
+  credentials: true
+}));
 app.use(express.json());
 // Sử dụng auth routes cho các đường dẫn bắt đầu bằng /api/auth
 // --- CÁC ROUTE ---
