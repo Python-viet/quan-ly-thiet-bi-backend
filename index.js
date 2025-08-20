@@ -62,5 +62,5 @@ app.get('/api/profile', authenticateToken, (req, res) => {
 
 
 app.listen(PORT, () => {
-  console.log(`Server đang chạy tại http://localhost:${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
