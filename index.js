@@ -36,22 +36,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json());
-
-// --- API CÔNG KHAI TẠM THỜI ĐỂ TẠO HASH ---
-app.get('/api/generate-hash/:password', async (req, res) => {
-    try {
-        const { password } = req.params;
-        const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(password, salt);
-        res.send(`
-            <h1>Mật khẩu gốc: ${password}</h1>
-            <h2>Hash mới (sao chép chuỗi này):</h2>
-            <p style="background: #eee; padding: 10px; font-family: monospace;">${password_hash}</p>
-        `);
-    } catch (err) {
-        res.status(500).send('Lỗi khi tạo hash.');
-    }
-});
 // Sử dụng auth routes cho các đường dẫn bắt đầu bằng /api/auth
 // --- CÁC ROUTE ---
 app.get('/', (req, res) => {
