@@ -35,7 +35,7 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('Chào mừng đến với Backend API Quản lý Thiết bị!');
 });
-app.use('/api/auth', authRoutes);
+app.use("/api/auth", require("./routes/auth"));
 // Route quản lý phiếu mượn (YÊU CẦU TOKEN)
 // Tất cả các request đến /api/forms sẽ phải đi qua middleware authenticateToken trước
 app.use('/api/forms', authenticateToken, formRoutes); // <-- Sử dụng route mới
