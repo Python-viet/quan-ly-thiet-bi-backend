@@ -18,14 +18,10 @@ const authorizeRoles = require('./middleware/authorizeRoles'); // <-- Import
 const app = express();
 const PORT = process.env.PORT || 3001;
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     require: true,
-    rejectUnauthorized: false,  // cần cho Neon/Render
+    rejectUnauthorized: false,
   },
 });
 app.use(cors({
@@ -33,30 +29,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-// --- GỠ LỖI CORS ---
-// In ra giá trị biến môi trường để kiểm tra khi server khởi động
-console.log(`[CORS DEBUG] FRONTEND_URL from environment: ${process.env.FRONTEND_URL}`);
 
-// Cấu hình CORS một cách tường minh và an toàn
-const corsOptions = {
-    origin: process.env.FRONTEND_URL, // Chỉ chấp nhận yêu cầu từ địa chỉ này
-    optionsSuccessStatus: 200 // For legacy browser support
-};
-app.use(cors(corsOptions));
-app.use(express.json());
-
-
-// --- API CÔNG KHAI TẠM THỜI ĐỂ TẠO HASH ---
-app.get('/api/generate-hash/:password', async (req, res) => {
-    try {
-        const { password } = req.params;
-        const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(password, salt);
-        res.send(`<h1>Hash:</h1><p>${password_hash}</p>`);
-    } catch (err) {
-        res.status(500).send('Lỗi khi tạo hash.');
-    }
-});
 // Sử dụng auth routes cho các đường dẫn bắt đầu bằng /api/auth
 // --- CÁC ROUTE ---
 app.get('/', (req, res) => {
