@@ -23,6 +23,10 @@ const pool = new Pool({
   database: process.env.DB_DATABASE,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
+  ssl: {
+    require: true,
+    rejectUnauthorized: false,  // cần cho Neon/Render
+  },
 });
 app.use(cors({
   origin: "https://quan-ly-thiet-bi-frontend.vercel.app",
