@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -27,10 +28,6 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// --- CÁC ROUTE ---
-app.get('/', (req, res) => {
-  res.send('Chào mừng đến với Backend API Quản lý Thiết bị!');
-});
 // --- API CÔNG KHAI TẠM THỜI ĐỂ TẠO HASH ---
 app.get('/api/generate-hash/:password', async (req, res) => {
     try {
@@ -47,6 +44,10 @@ app.get('/api/generate-hash/:password', async (req, res) => {
     }
 });
 // Sử dụng auth routes cho các đường dẫn bắt đầu bằng /api/auth
+// --- CÁC ROUTE ---
+app.get('/', (req, res) => {
+  res.send('Chào mừng đến với Backend API Quản lý Thiết bị!');
+});
 app.use('/api/auth', authRoutes);
 // Route quản lý phiếu mượn (YÊU CẦU TOKEN)
 // Tất cả các request đến /api/forms sẽ phải đi qua middleware authenticateToken trước
