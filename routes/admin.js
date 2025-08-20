@@ -346,21 +346,4 @@ router.post('/users/bulk-upload', upload.single('file'), async (req, res) => {
         fs.unlinkSync(filePath);
     }
 });
-// --- API TẠM THỜI ĐỂ TẠO HASH ---
-// GET /api/admin/hash-password/:password
-router.get('/hash-password/:password', async (req, res) => {
-    try {
-        const { password } = req.params;
-        const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(password, salt);
-        res.send(`
-            <h1>Mật khẩu gốc: ${password}</h1>
-            <h2>Hash mới (sao chép chuỗi này):</h2>
-            <p style="background: #eee; padding: 10px; font-family: monospace;">${password_hash}</p>
-        `);
-    } catch (err) {
-        res.status(500).send('Lỗi khi tạo hash.');
-    }
-});
-
 module.exports = router;
