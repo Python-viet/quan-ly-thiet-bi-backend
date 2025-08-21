@@ -3,6 +3,7 @@
 
 const express = require('express');
 const router = express.Router();
+const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
