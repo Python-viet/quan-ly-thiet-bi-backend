@@ -62,5 +62,5 @@ app.get('/api/profile', authenticateToken, (req, res) => {
 
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
