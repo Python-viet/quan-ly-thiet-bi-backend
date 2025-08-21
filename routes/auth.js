@@ -11,12 +11,17 @@ require('dotenv').config();
 
 // Cấu hình kết nối DB (tương tự index.js)
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    require: true,
+    rejectUnauthorized: false,
+  },
 });
+app.use(cors({
+  origin: "https://quan-ly-thiet-bi-frontend.vercel.app",
+  credentials: true
+}));
+app.use(express.json());
 
 // API Endpoint: POST /api/auth/login
 router.post('/login', async (req, res) => {
