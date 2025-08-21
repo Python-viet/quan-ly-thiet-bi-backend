@@ -1,7 +1,19 @@
+// File: index.js (Cập nhật hoàn chỉnh)
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
+
+// --- KIỂM TRA BIẾN MÔI TRƯỜNG KHI KHỞI ĐỘNG ---
+if (!process.env.JWT_SECRET) {
+    console.error("FATAL ERROR: JWT_SECRET is not defined.");
+    process.exit(1); // Dừng server nếu thiếu JWT_SECRET
+}
+if (!process.env.FRONTEND_URL) {
+    console.error("FATAL ERROR: FRONTEND_URL is not defined.");
+    process.exit(1);
+}
 
 // Import các module route
 const authRoutes = require('./routes/auth');
