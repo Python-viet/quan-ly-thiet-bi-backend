@@ -1,3 +1,5 @@
+// Quản lý kết nối database tập trung
+
 const { Pool } = require('pg');
 require('dotenv').config();
 
