@@ -8,7 +8,7 @@ require('dotenv').config();
 // --- KIỂM TRA BIẾN MÔI TRƯỜNG KHI KHỞI ĐỘNG ---
 if (!process.env.JWT_SECRET) {
     console.error("FATAL ERROR: JWT_SECRET is not defined.");
-    process.exit(1); // Dừng server nếu thiếu JWT_SECRET
+    process.exit(1);
 }
 if (!process.env.FRONTEND_URL) {
     console.error("FATAL ERROR: FRONTEND_URL is not defined.");
@@ -38,31 +38,16 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// --- API CÔNG KHAI TẠM THỜI ĐỂ TẠO HASH ---
-// API này không được bảo vệ và sẽ bị xóa sau khi sử dụng
-app.get('/api/generate-hash/:password', async (req, res) => {
-    try {
-        const { password } = req.params;
-        const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(password, salt);
-        res.send(`
-            <h1>Mật khẩu gốc: ${password}</h1>
-            <h2>Hash mới (sao chép chuỗi này):</h2>
-            <p style="background: #eee; padding: 10px; font-family: monospace;">${password_hash}</p>
-        `);
-    } catch (err) {
-        console.error("Lỗi khi tạo hash:", err);
-        res.status(500).send('Lỗi khi tạo hash.');
-    }
-});
-
 // --- CÁC ROUTE CỦA ỨNG DỤNG ---
 app.get('/', (req, res) => {
   res.send('Chào mừng đến với Backend API Quản lý Thiết bị!');
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api/forms', authenticateToken, formRoutes);
+
+// SỬA LỖI: Làm rõ quyền truy cập cho tất cả các vai trò
+app.use('/api/forms', authenticateToken, authorizeRoles('admin', 'manager', 'leader', 'teacher'), formRoutes);
+
 app.use('/api/stats', authenticateToken, authorizeRoles('admin', 'manager', 'leader'), statsRoutes);
 app.use('/api/admin', authenticateToken, authorizeRoles('admin', 'manager'), adminRoutes);
 app.use('/api/export', authenticateToken, authorizeRoles('admin', 'manager', 'leader'), exportRoutes);
