@@ -1,23 +1,11 @@
-// File: routes/export.js
-// Chứa các API để xuất dữ liệu ra file báo cáo chuyên nghiệp.
-// *** PHIÊN BẢN SỬA LỖI HIỂN THỊ PDF ***
-
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db'); // <-- QUAN TRỌNG: Sử dụng kết nối từ db.js
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const path = require('path');
-const fs = require('fs'); // Import module 'fs' để kiểm tra file
+const fs = require('fs');
 require('dotenv').config();
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
 
 // --- HELPER FUNCTION: Lấy dữ liệu và nhóm theo tháng ---
 async function getGroupedData(year, departmentId, userId) {
@@ -42,7 +30,7 @@ async function getGroupedData(year, departmentId, userId) {
     query += ' ORDER BY bf.return_date, bf.week';
 
     const { rows } = await pool.query(query, params);
-    
+
     const groupedByMonth = rows.reduce((acc, row) => {
         if (row.return_date) {
             const month = new Date(row.return_date).getMonth() + 1;
@@ -56,7 +44,6 @@ async function getGroupedData(year, departmentId, userId) {
 
     return groupedByMonth;
 }
-
 
 // --- API 1: XUẤT FILE EXCEL ---
 router.get('/excel', async (req, res) => {
@@ -73,10 +60,6 @@ router.get('/excel', async (req, res) => {
         if (userId) {
             const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
             teacherName = userQuery.rows[0]?.full_name || '';
-        }
-
-        if (Object.keys(groupedData).length === 0) {
-            return res.status(404).send('Không tìm thấy dữ liệu phù hợp để xuất Excel.');
         }
 
         const workbook = new ExcelJS.Workbook();
@@ -114,8 +97,6 @@ router.get('/excel', async (req, res) => {
                 });
             });
             worksheet.columns.forEach((column, i) => {
-                const lengths = column.values.map(v => v.toString().length);
-                const maxLength = Math.max(...lengths.filter(v => typeof v === 'number'));
                 column.width = [5, 5, 12, 12, 25, 8, 8, 30, 10, 15, 8, 8][i] || 10;
             });
             worksheet.addRow([]);
@@ -141,14 +122,12 @@ router.get('/excel', async (req, res) => {
     }
 });
 
-
 // --- API 2: XUẤT FILE PDF ---
 router.get('/pdf', async (req, res) => {
     const { year, departmentId, userId } = req.query;
     if (!year || !departmentId) {
         return res.status(400).json({ error: 'Vui lòng cung cấp năm và tổ chuyên môn.' });
     }
-
     try {
         const groupedData = await getGroupedData(year, departmentId, userId);
         const departmentQuery = await pool.query('SELECT name FROM departments WHERE id = $1', [departmentId]);
@@ -158,25 +137,13 @@ router.get('/pdf', async (req, res) => {
             const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
             teacherName = userQuery.rows[0]?.full_name || '';
         }
-
-        if (Object.keys(groupedData).length === 0) {
-            return res.status(404).send('Không tìm thấy dữ liệu phù hợp để xuất PDF.');
-        }
-
         const doc = new PDFDocument({ layout: 'landscape', size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="BaoCaoPDF_${year}.pdf"`);
         doc.pipe(res);
-
         const fontPath = path.join(__dirname, '../fonts/Roboto-Regular.ttf');
-        if (fs.existsSync(fontPath)) {
-            doc.registerFont('Roboto', fontPath);
-            doc.font('Roboto');
-        } else {
-            console.error('!!! FONT NOT FOUND !!! at path:', fontPath);
-            doc.font('Helvetica'); 
-        }
-
+        doc.registerFont('Roboto', fontPath);
+        doc.font('Roboto');
         let isFirstPage = true;
         for (const month in groupedData) {
             if (!isFirstPage) {
@@ -210,28 +177,23 @@ router.get('/pdf', async (req, res) => {
     }
 });
 
-// --- HELPER FUNCTION: Vẽ bảng trong PDF (ĐÃ SỬA LỖI) ---
+// --- HELPER FUNCTION: Vẽ bảng trong PDF ---
 async function drawTable(doc, table) {
     let startY = doc.y;
     const startX = doc.page.margins.left;
     const rowHeight = 30;
     const columnWidths = [30, 30, 55, 55, 100, 25, 40, 130, 50, 80, 40, 45];
     doc.font('Roboto').fontSize(8);
-
-    // Draw headers
     let currentX = startX;
     table.headers.forEach((header, i) => {
         doc.rect(currentX, startY, columnWidths[i], rowHeight).stroke();
         doc.text(header, currentX + 2, startY + 5, { width: columnWidths[i] - 4, align: 'center' });
         currentX += columnWidths[i];
     });
-    doc.y = startY + rowHeight; // Cập nhật vị trí Y sau khi vẽ xong header
-
-    // Draw rows
+    doc.y = startY + rowHeight;
     table.rows.forEach(row => {
         const initialY = doc.y;
         let maxRowHeight = 0;
-
         row.forEach((cell, i) => {
             const cellHeight = doc.heightOfString(cell.toString(), { width: columnWidths[i] - 4 });
             if (cellHeight > maxRowHeight) {
@@ -239,24 +201,17 @@ async function drawTable(doc, table) {
             }
         });
         const calculatedRowHeight = Math.max(rowHeight, maxRowHeight + 10);
-
         if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 50) {
             doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
             doc.y = doc.page.margins.top;
         }
-        
-        // SỬA LỖI: Lưu lại vị trí Y của dòng hiện tại
         const rowY = doc.y;
         currentX = startX;
-
-        // Vẽ các ô và text trên cùng một hàng Y
         row.forEach((cell, i) => {
             doc.rect(currentX, rowY, columnWidths[i], calculatedRowHeight).stroke();
             doc.text(cell.toString(), currentX + 2, rowY + 5, { width: columnWidths[i] - 4, align: 'left' });
             currentX += columnWidths[i];
         });
-
-        // Cập nhật vị trí Y cho dòng tiếp theo
         doc.y = rowY + calculatedRowHeight;
     });
 }
