@@ -29,10 +29,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-// --- API 2: LẤY DANH SÁCH PHIẾU MƯỢN (READ & SEARCH) ---
+// --- API 2: LẤY DANH SÁCH PHIẾU MƯỢN (READ & SEARCH & FILTER) ---
 router.get('/', async (req, res) => {
   const { id: userId, role, departmentId } = req.user;
-  const { search } = req.query;
+  const { search, teacherId } = req.query; // Thêm teacherId từ query
 
   try {
     let query = `
@@ -43,14 +43,21 @@ router.get('/', async (req, res) => {
     const params = [];
     const whereClauses = [];
 
+    // Lọc theo vai trò
     if (role === 'teacher') {
       params.push(userId);
       whereClauses.push(`bf.user_id = $${params.length}`);
     } else if (role === 'leader') {
       params.push(departmentId);
       whereClauses.push(`u.department_id = $${params.length}`);
+      // SỬA LỖI: Cho phép leader lọc theo một giáo viên cụ thể trong tổ
+      if (teacherId) {
+        params.push(teacherId);
+        whereClauses.push(`bf.user_id = $${params.length}`);
+      }
     }
 
+    // Thêm điều kiện tìm kiếm
     if (search) {
       params.push(`%${search}%`);
       whereClauses.push(`(bf.device_name ILIKE $${params.length} OR bf.lesson_name ILIKE $${params.length})`);
@@ -59,7 +66,6 @@ router.get('/', async (req, res) => {
     if (whereClauses.length > 0) {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
     }
-
     query += ' ORDER BY bf.created_at DESC';
 
     const queryResult = await pool.query(query, params);
