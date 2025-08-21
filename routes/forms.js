@@ -1,18 +1,7 @@
-// File: routes/forms.js
-// Phiên bản hoàn chỉnh, đã sửa lỗi và tích hợp tìm kiếm.
-
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db'); // <-- QUAN TRỌNG: Sử dụng kết nối từ db.js
 require('dotenv').config();
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
 
 // --- API 1: TẠO MỘT PHIẾU MƯỢN MỚI (CREATE) ---
 router.post('/', async (req, res) => {
