@@ -1,31 +1,18 @@
-// File: routes/admin.js
-// Chứa các API dành riêng cho Admin để quản lý người dùng.
-
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const pool = require('../db'); // <-- QUAN TRỌNG: Sử dụng kết nối từ db.js
 const bcrypt = require('bcryptjs');
-const multer = require('multer'); // <-- Import multer
-const ExcelJS = require('exceljs'); // <-- Import exceljs
-const fs = require('fs'); // <-- Import fs để xóa file tạm
+const multer = require('multer');
+const ExcelJS = require('exceljs');
+const fs = require('fs');
 require('dotenv').config();
 
-const upload = multer({ dest: 'uploads/' }); // Cấu hình thư mục tạm để lưu file upload
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+const upload = multer({ dest: 'uploads/' });
 
 // --- API 1: LẤY DANH SÁCH TẤT CẢ NGƯỜI DÙNG ---
-// GET /api/admin/users
 router.get('/users', async (req, res) => {
   try {
     const users = await pool.query(
-      // SỬA LỖI: Thêm u.department_id vào câu lệnh SELECT
       `SELECT u.id, u.username, u.full_name, u.department_id, r.name AS role, d.name AS department
        FROM users u
        JOIN roles r ON u.role_id = r.id
@@ -40,31 +27,23 @@ router.get('/users', async (req, res) => {
 });
 
 // --- API 2: TẠO NGƯỜI DÙNG MỚI ---
-// POST /api/admin/users
 router.post('/users', async (req, res) => {
   const { username, password, full_name, role_id, department_id } = req.body;
-
   if (!username || !password || !full_name || !role_id) {
     return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc.' });
   }
-
   try {
-    // Kiểm tra username đã tồn tại chưa
     const userExists = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (userExists.rows.length > 0) {
       return res.status(400).json({ error: 'Tên đăng nhập đã tồn tại.' });
     }
-
-    // Mã hóa mật khẩu
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
-
     const newUser = await pool.query(
       `INSERT INTO users (username, password_hash, full_name, role_id, department_id)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, username, full_name`,
       [username, password_hash, full_name, role_id, department_id]
     );
-
     res.status(201).json(newUser.rows[0]);
   } catch (err) {
     console.error(err.message);
@@ -73,29 +52,24 @@ router.post('/users', async (req, res) => {
 });
 
 // --- API 3: RESET MẬT KHẨU CHO NGƯỜI DÙNG ---
-// PUT /api/admin/users/:id/reset-password
 router.put('/users/:id/reset-password', async (req, res) => {
     const { id: userId } = req.params;
     const { newPassword } = req.body;
-
     if (!newPassword) {
         return res.status(400).json({ error: 'Vui lòng cung cấp mật khẩu mới.' });
     }
-
     try {
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(newPassword, salt);
-
         await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [password_hash, userId]);
-
         res.json({ message: 'Reset mật khẩu thành công.' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Lỗi server');
     }
 });
+
 // --- API 4: LẤY DANH SÁCH TỔ CHUYÊN MÔN ---
-// GET /api/admin/departments
 router.get('/departments', async (req, res) => {
   try {
     const departments = await pool.query('SELECT * FROM departments ORDER BY name');
@@ -107,25 +81,20 @@ router.get('/departments', async (req, res) => {
 });
 
 // --- API 5: CẬP NHẬT TỔ CHUYÊN MÔN ---
-// PUT /api/admin/departments/:id
 router.put('/departments/:id', async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
-
     if (!name) {
         return res.status(400).json({ error: 'Vui lòng nhập tên tổ chuyên môn.' });
     }
-
     try {
         const updatedDept = await pool.query(
             'UPDATE departments SET name = $1 WHERE id = $2 RETURNING *',
             [name, id]
         );
-
         if (updatedDept.rows.length === 0) {
             return res.status(404).json({ error: 'Không tìm thấy tổ chuyên môn.' });
         }
-
         res.json(updatedDept.rows[0]);
     } catch (err) {
         console.error(err.message);
@@ -133,22 +102,44 @@ router.put('/departments/:id', async (req, res) => {
     }
 });
 
+// --- API 6: XÓA TỔ CHUYÊN MÔN ---
+router.delete('/departments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM departments WHERE id = $1', [id]);
+        res.json({ message: 'Đã xóa tổ chuyên môn thành công.' });
+    } catch (err) {
+        if (err.code === '23503') {
+            return res.status(400).json({ error: 'Không thể xóa tổ chuyên môn này vì đang có giáo viên thuộc về nó.' });
+        }
+        console.error(err.message);
+        res.status(500).send('Lỗi server');
+    }
+});
+
+// --- API 7: XÓA NGƯỜI DÙNG ---
+router.delete('/users/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        res.json({ message: 'Đã xóa người dùng thành công.' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Lỗi server');
+    }
+});
+
 // --- API 8: THÊM MỚI TỔ CHUYÊN MÔN ---
-// POST /api/admin/departments
 router.post('/departments', async (req, res) => {
     const { name } = req.body;
-
     if (!name) {
         return res.status(400).json({ error: 'Vui lòng nhập tên tổ chuyên môn.' });
     }
-
     try {
-        // Kiểm tra xem tên tổ đã tồn tại chưa
         const existingDept = await pool.query('SELECT id FROM departments WHERE name = $1', [name]);
         if (existingDept.rows.length > 0) {
             return res.status(400).json({ error: 'Tên tổ chuyên môn này đã tồn tại.' });
         }
-
         const newDept = await pool.query(
             'INSERT INTO departments (name) VALUES ($1) RETURNING *',
             [name]
@@ -159,45 +150,6 @@ router.post('/departments', async (req, res) => {
         res.status(500).send('Lỗi server');
     }
 });
-
-// --- API 6: XÓA TỔ CHUYÊN MÔN ---
-// DELETE /api/admin/departments/:id
-router.delete('/departments/:id', async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        await pool.query('DELETE FROM departments WHERE id = $1', [id]);
-        res.json({ message: 'Đã xóa tổ chuyên môn thành công.' });
-    } catch (err) {
-        // Bắt lỗi khóa ngoại nếu tổ chuyên môn đang được sử dụng
-        if (err.code === '23503') { // Mã lỗi của PostgreSQL cho vi phạm khóa ngoại
-            return res.status(400).json({ error: 'Không thể xóa tổ chuyên môn này vì đang có giáo viên thuộc về nó.' });
-        }
-        console.error(err.message);
-        res.status(500).send('Lỗi server');
-    }
-});
-
-// --- API 7: XÓA NGƯỜI DÙNG ---
-// DELETE /api/admin/users/:id
-router.delete('/users/:id', async (req, res) => {
-    const { id } = req.params;
-
-    try {
-        // Tùy chọn: Bạn có thể thêm logic để không cho phép admin tự xóa tài khoản của chính mình
-        // const { id: currentAdminId } = req.user;
-        // if (parseInt(id, 10) === currentAdminId) {
-        //     return res.status(400).json({ error: 'Bạn không thể tự xóa tài khoản của mình.' });
-        // }
-
-        await pool.query('DELETE FROM users WHERE id = $1', [id]);
-        res.json({ message: 'Đã xóa người dùng thành công.' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Lỗi server');
-    }
-});
-
 // --- API 9: SAO LƯU DỮ LIỆU (LOGICAL BACKUP) ---
 // POST /api/admin/backup
 router.post('/backup', async (req, res) => {
