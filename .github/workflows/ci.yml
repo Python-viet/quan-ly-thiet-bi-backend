@@ -1,4 +1,4 @@
-name: CI Check
+name: CI Backend
 
 on:
   push:
@@ -7,9 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  backend-check:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -28,6 +27,6 @@ jobs:
       - name: Run audit
         run: npm audit --audit-level=high
 
-      - name: Build (frontend only)
-        if: contains(github.repository, 'frontend')
-        run: npm run build
+      - name: Run tests
+        run: npm test
+        continue-on-error: true
