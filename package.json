@@ -19,10 +19,6 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
-}
-"devDependencies": {
     "nodemon": "^3.0.1",
     "eslint": "^9.0.0"
   }
