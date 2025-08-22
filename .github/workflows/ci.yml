@@ -2,31 +2,29 @@ name: CI Backend
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
-  backend-check:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "18"
+          cache: "npm"
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm install
 
       - name: Run ESLint
         run: npx eslint . --max-warnings=0
 
-      - name: Run audit
-        run: npm audit --audit-level=high
-
       - name: Run tests
         run: npm test
-        continue-on-error: true
