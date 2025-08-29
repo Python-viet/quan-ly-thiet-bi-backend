@@ -1,6 +1,8 @@
+// File: routes/export.js (Cập nhật hoàn chỉnh)
+
 const express = require('express');
 const router = express.Router();
-const pool = require('../db'); // <-- QUAN TRỌNG: Sử dụng kết nối từ db.js
+const pool = require('../db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const path = require('path');
@@ -107,10 +109,28 @@ router.get('/excel', async (req, res) => {
             worksheet.mergeCells('A' + (worksheet.rowCount + 1) + ':L' + (worksheet.rowCount + 1));
             worksheet.getCell('A' + worksheet.rowCount).value = `Tổng số lượt ứng dụng CNTT: ${totalIT}`;
             worksheet.addRow([]);
-            worksheet.mergeCells('I' + (worksheet.rowCount + 1) + ':L' + (worksheet.rowCount + 1));
-            const signCell = worksheet.getCell('I' + worksheet.rowCount);
-            signCell.value = 'Giáo viên ký tên';
-            signCell.alignment = { horizontal: 'center' };
+
+            // SỬA LỖI: Thêm phần ký tên
+            const signRow = worksheet.rowCount + 2;
+            worksheet.mergeCells(`B${signRow}:D${signRow}`);
+            const staffSignCell = worksheet.getCell(`B${signRow}`);
+            staffSignCell.value = 'Nhân viên Thiết bị';
+            staffSignCell.font = { bold: true };
+            staffSignCell.alignment = { horizontal: 'center' };
+            worksheet.mergeCells(`B${signRow+2}:D${signRow+2}`);
+            worksheet.getCell(`B${signRow+2}`).value = 'Lê Thị Loan';
+            worksheet.getCell(`B${signRow+2}`).alignment = { horizontal: 'center' };
+
+            worksheet.mergeCells(`I${signRow}:L${signRow}`);
+            const teacherSignCell = worksheet.getCell(`I${signRow}`);
+            teacherSignCell.value = 'Giáo viên ký tên';
+            teacherSignCell.font = { bold: true };
+            teacherSignCell.alignment = { horizontal: 'center' };
+            if (teacherName) {
+                worksheet.mergeCells(`I${signRow+2}:L${signRow+2}`);
+                worksheet.getCell(`I${signRow+2}`).value = teacherName;
+                worksheet.getCell(`I${signRow+2}`).alignment = { horizontal: 'center' };
+            }
         }
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="BaoCao_${year}.xlsx"`);
@@ -137,7 +157,7 @@ router.get('/pdf', async (req, res) => {
             const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
             teacherName = userQuery.rows[0]?.full_name || '';
         }
-        const doc = new PDFDocument({ layout: 'landscape', size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
+        const doc = new PDFDocument({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="BaoCaoPDF_${year}.pdf"`);
         doc.pipe(res);
@@ -147,7 +167,7 @@ router.get('/pdf', async (req, res) => {
         let isFirstPage = true;
         for (const month in groupedData) {
             if (!isFirstPage) {
-                doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
+                doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
             }
             isFirstPage = false;
             const monthData = groupedData[month];
@@ -164,11 +184,22 @@ router.get('/pdf', async (req, res) => {
             const totalUsage = monthData.reduce((sum, row) => sum + (row.usage_count || 0), 0);
             const totalIT = monthData.filter(row => row.uses_it).length;
             const pageHeight = doc.page.height;
-            const bottomMargin = 70;
-            doc.fontSize(10);
-            doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, pageHeight - bottomMargin - 40);
-            doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, pageHeight - bottomMargin - 25);
-            doc.text('Giáo viên ký tên', doc.page.width - doc.page.margins.right - 150, pageHeight - bottomMargin - 40, { width: 150, align: 'center' });
+            const bottomMargin = 50;
+            doc.fontSize(11);
+            doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, pageHeight - bottomMargin - 60);
+            doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, pageHeight - bottomMargin - 45);
+            
+            // SỬA LỖI: Thêm phần ký tên
+            const signY = pageHeight - bottomMargin - 30;
+            doc.font('Roboto').fontSize(11).text('Nhân viên Thiết bị', doc.page.margins.left + 50, signY, { width: 150, align: 'center' });
+            doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.margins.left + 50, signY + 15, { width: 150, align: 'center' });
+            doc.fontSize(11).text('Lê Thị Loan', doc.page.margins.left + 50, signY + 50, { width: 150, align: 'center' });
+
+            doc.font('Roboto').fontSize(11).text('Giáo viên ký tên', doc.page.width - doc.page.margins.right - 200, signY, { width: 150, align: 'center' });
+            doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.width - doc.page.margins.right - 200, signY + 15, { width: 150, align: 'center' });
+            if (teacherName) {
+                doc.fontSize(11).text(teacherName, doc.page.width - doc.page.margins.right - 200, signY + 50, { width: 150, align: 'center' });
+            }
         }
         doc.end();
     } catch (err) {
@@ -182,7 +213,8 @@ async function drawTable(doc, table) {
     let startY = doc.y;
     const startX = doc.page.margins.left;
     const rowHeight = 30;
-    const columnWidths = [30, 30, 55, 55, 100, 25, 40, 130, 50, 80, 40, 45];
+    // SỬA LỖI: Tinh chỉnh lại độ rộng cột
+    const columnWidths = [35, 35, 60, 60, 110, 25, 40, 150, 55, 80, 40, 50];
     doc.font('Roboto').fontSize(8);
     let currentX = startX;
     table.headers.forEach((header, i) => {
@@ -201,8 +233,8 @@ async function drawTable(doc, table) {
             }
         });
         const calculatedRowHeight = Math.max(rowHeight, maxRowHeight + 10);
-        if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 50) {
-            doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
+        if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 80) { // Tăng khoảng trống cho footer
+            doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
             doc.y = doc.page.margins.top;
         }
         const rowY = doc.y;
