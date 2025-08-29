@@ -189,8 +189,13 @@ router.get('/pdf', async (req, res) => {
             doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, pageHeight - bottomMargin - 60);
             doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, pageHeight - bottomMargin - 45);
             
-            // SỬA LỖI: Thêm phần ký tên
-            const signY = pageHeight - bottomMargin - 30;
+            // SỬA LỖI: Nâng footer và phần ký tên lên cao hơn
+            const footerY = doc.y + 20; // Vị trí bắt đầu của footer
+            doc.fontSize(11);
+            doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, footerY);
+            doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, footerY + 15);
+            
+            const signY = footerY + 40;
             doc.font('Roboto').fontSize(11).text('Nhân viên Thiết bị', doc.page.margins.left + 50, signY, { width: 150, align: 'center' });
             doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.margins.left + 50, signY + 15, { width: 150, align: 'center' });
             doc.fontSize(11).text('Lê Thị Loan', doc.page.margins.left + 50, signY + 50, { width: 150, align: 'center' });
@@ -214,7 +219,7 @@ async function drawTable(doc, table) {
     const startX = doc.page.margins.left;
     const rowHeight = 30;
     // SỬA LỖI: Tinh chỉnh lại độ rộng cột
-    const columnWidths = [35, 35, 60, 60, 110, 25, 40, 150, 55, 80, 40, 50];
+    const columnWidths = [30, 30, 50, 50, 120, 25, 40, 180, 55, 80, 40, 40];
     doc.font('Roboto').fontSize(8);
     let currentX = startX;
     table.headers.forEach((header, i) => {
