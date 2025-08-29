@@ -112,18 +112,18 @@ router.get('/excel', async (req, res) => {
             
             // SỬA LỖI: Điều chỉnh độ rộng cột
             worksheet.columns = [
-                { key: 'Tháng', width: 8 },
-                { key: 'Tuần', width: 8 },
-                { key: 'Ngày mượn', width: 15 },
-                { key: 'Ngày trả', width: 15 },
-                { key: 'Thiết bị mượn sử dụng', width: 30 },
-                { key: 'Số lượng', width: 10 },
-                { key: 'Dạy tiết', width: 12 },
-                { key: 'Tên bài dạy', width: 40 },
-                { key: 'Dạy lớp', width: 15 },
-                { key: 'Tình trạng thiết bị', width: 20 },
-                { key: 'Số lượt sử dụng', width: 10 },
-                { key: 'Có UDCNTT', width: 12 }
+                { key: 'Tháng', width: 5.7 },
+                { key: 'Tuần', width: 5.7 },
+                { key: 'Ngày mượn', width: 10.57 },
+                { key: 'Ngày trả', width: 10.57 },
+                { key: 'Thiết bị mượn sử dụng', width: 21.71 },
+                { key: 'Số lượng', width: 6 },
+                { key: 'Dạy tiết', width: 8.71 },
+                { key: 'Tên bài dạy', width: 25.29 },
+                { key: 'Dạy lớp', width: 8.86 },
+                { key: 'Tình trạng thiết bị', width: 12.29 },
+                { key: 'Số lượt sử dụng', width: 7.86 },
+                { key: 'Có UDCNTT', width: 7.29 }
             ];
 
             worksheet.addRow([]);
