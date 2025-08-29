@@ -114,16 +114,16 @@ router.get('/excel', async (req, res) => {
             worksheet.columns = [
                 { key: 'Tháng', width: 5.7 },
                 { key: 'Tuần', width: 5.7 },
-                { key: 'Ngày mượn', width: 10.57 },
-                { key: 'Ngày trả', width: 10.57 },
-                { key: 'Thiết bị mượn sử dụng', width: 21.71 },
+                { key: 'Ngày mượn', width: 11 },
+                { key: 'Ngày trả', width: 11 },
+                { key: 'Thiết bị mượn sử dụng', width: 25 },
                 { key: 'Số lượng', width: 6 },
-                { key: 'Dạy tiết', width: 8.71 },
-                { key: 'Tên bài dạy', width: 25.29 },
+                { key: 'Dạy tiết', width: 8.5 },
+                { key: 'Tên bài dạy', width: 25 },
                 { key: 'Dạy lớp', width: 8.86 },
-                { key: 'Tình trạng thiết bị', width: 12.29 },
+                { key: 'Tình trạng thiết bị', width: 13 },
                 { key: 'Số lượt sử dụng', width: 7.86 },
-                { key: 'Có UDCNTT', width: 7.29 }
+                { key: 'Có UDCNTT', width: 8 }
             ];
 
             worksheet.addRow([]);
@@ -144,8 +144,8 @@ router.get('/excel', async (req, res) => {
             staffSignCell.font = { bold: true };
             staffSignCell.alignment = { horizontal: 'center' };
             worksheet.mergeCells(`B${signRow+3}:D${signRow+3}`); // Tăng khoảng cách
-            worksheet.getCell(`B${signRow+3}`).value = 'Lê Thị Loan';
-            worksheet.getCell(`B${signRow+3}`).alignment = { horizontal: 'center' };
+            worksheet.getCell(`B${signRow+5}`).value = 'Lê Thị Loan';
+            worksheet.getCell(`B${signRow+5}`).alignment = { horizontal: 'center' };
 
             worksheet.mergeCells(`I${signRow}:L${signRow}`);
             const teacherSignCell = worksheet.getCell(`I${signRow}`);
@@ -154,8 +154,8 @@ router.get('/excel', async (req, res) => {
             teacherSignCell.alignment = { horizontal: 'center' };
             if (teacherName) {
                 worksheet.mergeCells(`I${signRow+3}:L${signRow+3}`); // Tăng khoảng cách
-                worksheet.getCell(`I${signRow+3}`).value = teacherName;
-                worksheet.getCell(`I${signRow+3}`).alignment = { horizontal: 'center' };
+                worksheet.getCell(`I${signRow+5}`).value = teacherName;
+                worksheet.getCell(`I${signRow+5}`).alignment = { horizontal: 'center' };
             }
         }
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
