@@ -143,7 +143,7 @@ router.get('/excel', async (req, res) => {
             staffSignCell.value = 'Nhân viên Thiết bị';
             staffSignCell.font = { bold: true };
             staffSignCell.alignment = { horizontal: 'center' };
-            worksheet.mergeCells(`B${signRow+3}:D${signRow+3}`); // Tăng khoảng cách
+            worksheet.mergeCells(`B${signRow+5}:D${signRow+3}`); // Tăng khoảng cách
             worksheet.getCell(`B${signRow+5}`).value = 'Lê Thị Loan';
             worksheet.getCell(`B${signRow+5}`).alignment = { horizontal: 'center' };
 
@@ -153,7 +153,7 @@ router.get('/excel', async (req, res) => {
             teacherSignCell.font = { bold: true };
             teacherSignCell.alignment = { horizontal: 'center' };
             if (teacherName) {
-                worksheet.mergeCells(`I${signRow+3}:L${signRow+3}`); // Tăng khoảng cách
+                worksheet.mergeCells(`I${signRow+5}:L${signRow+3}`); // Tăng khoảng cách
                 worksheet.getCell(`I${signRow+5}`).value = teacherName;
                 worksheet.getCell(`I${signRow+5}`).alignment = { horizontal: 'center' };
             }
