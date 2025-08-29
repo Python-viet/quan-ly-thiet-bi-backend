@@ -193,12 +193,12 @@ router.get('/pdf', async (req, res) => {
             const signY = footerY + 40;
             doc.font('Roboto').fontSize(11).text('Nhân viên Thiết bị', doc.page.margins.left + 50, signY, { width: 150, align: 'center' });
             doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.margins.left + 50, signY + 15, { width: 150, align: 'center' });
-            doc.fontSize(11).text('Lê Thị Loan', doc.page.margins.left + 50, signY + 50, { width: 150, align: 'center' });
+            doc.fontSize(11).text('Lê Thị Loan', doc.page.margins.left + 50, signY + 70, { width: 150, align: 'center' });
 
             doc.font('Roboto').fontSize(11).text('Giáo viên ký tên', doc.page.width - doc.page.margins.right - 200, signY, { width: 150, align: 'center' });
             doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.width - doc.page.margins.right - 200, signY + 15, { width: 150, align: 'center' });
             if (teacherName) {
-                doc.fontSize(11).text(teacherName, doc.page.width - doc.page.margins.right - 200, signY + 50, { width: 150, align: 'center' });
+                doc.fontSize(11).text(teacherName, doc.page.width - doc.page.margins.right - 200, signY + 70, { width: 150, align: 'center' });
             }
         }
         doc.end();
@@ -233,7 +233,7 @@ async function drawTable(doc, table) {
         });
         const calculatedRowHeight = Math.max(rowHeight, maxRowHeight + 10);
         // SỬA LỖI: Tăng khoảng trống dự trữ cho footer
-        if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 120) { 
+        if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 150) { 
             doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
             doc.y = doc.page.margins.top;
         }
