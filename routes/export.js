@@ -183,11 +183,6 @@ router.get('/pdf', async (req, res) => {
             await drawTable(doc, table);
             const totalUsage = monthData.reduce((sum, row) => sum + (row.usage_count || 0), 0);
             const totalIT = monthData.filter(row => row.uses_it).length;
-            const pageHeight = doc.page.height;
-            const bottomMargin = 50;
-            doc.fontSize(11);
-            doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, pageHeight - bottomMargin - 60);
-            doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, pageHeight - bottomMargin - 45);
             
             // SỬA LỖI: Nâng footer và phần ký tên lên cao hơn
             const footerY = doc.y + 20; // Vị trí bắt đầu của footer
@@ -218,7 +213,6 @@ async function drawTable(doc, table) {
     let startY = doc.y;
     const startX = doc.page.margins.left;
     const rowHeight = 30;
-    // SỬA LỖI: Tinh chỉnh lại độ rộng cột
     const columnWidths = [30, 30, 50, 50, 120, 25, 40, 180, 55, 80, 40, 40];
     doc.font('Roboto').fontSize(8);
     let currentX = startX;
@@ -238,7 +232,8 @@ async function drawTable(doc, table) {
             }
         });
         const calculatedRowHeight = Math.max(rowHeight, maxRowHeight + 10);
-        if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 80) { // Tăng khoảng trống cho footer
+        // SỬA LỖI: Tăng khoảng trống dự trữ cho footer
+        if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 120) { 
             doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
             doc.y = doc.page.margins.top;
         }
