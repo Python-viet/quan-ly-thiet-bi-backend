@@ -69,7 +69,18 @@ router.get('/excel', async (req, res) => {
         for (const month in groupedData) {
             const monthData = groupedData[month];
             const worksheet = workbook.addWorksheet(`Tháng ${month}`);
-            worksheet.pageSetup = { orientation: 'landscape', paperSize: 9 };
+            
+            // SỬA LỖI: Căn lề trang in
+            worksheet.pageSetup = { 
+                orientation: 'landscape', 
+                paperSize: 9, // A4
+                margins: {
+                    left: 0.47, right: 0.33,
+                    top: 0.31, bottom: 0.27,
+                    header: 0.3, footer: 0.3
+                }
+            };
+
             worksheet.mergeCells('A1:L1');
             const titleCell = worksheet.getCell('A1');
             titleCell.value = `BÁO CÁO SỬ DỤNG ĐỒ DÙNG DẠY HỌC: ${departmentName.toUpperCase()}`;
@@ -98,9 +109,23 @@ router.get('/excel', async (req, res) => {
                     cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                 });
             });
-            worksheet.columns.forEach((column, i) => {
-                column.width = [5, 5, 12, 12, 25, 8, 8, 30, 10, 15, 8, 8][i] || 10;
-            });
+            
+            // SỬA LỖI: Điều chỉnh độ rộng cột
+            worksheet.columns = [
+                { key: 'Tháng', width: 8 },
+                { key: 'Tuần', width: 8 },
+                { key: 'Ngày mượn', width: 15 },
+                { key: 'Ngày trả', width: 15 },
+                { key: 'Thiết bị mượn sử dụng', width: 30 },
+                { key: 'Số lượng', width: 10 },
+                { key: 'Dạy tiết', width: 12 },
+                { key: 'Tên bài dạy', width: 40 },
+                { key: 'Dạy lớp', width: 15 },
+                { key: 'Tình trạng thiết bị', width: 20 },
+                { key: 'Số lượt sử dụng', width: 10 },
+                { key: 'Có UDCNTT', width: 12 }
+            ];
+
             worksheet.addRow([]);
             const totalUsage = monthData.reduce((sum, row) => sum + (row.usage_count || 0), 0);
             const totalIT = monthData.filter(row => row.uses_it).length;
@@ -110,16 +135,17 @@ router.get('/excel', async (req, res) => {
             worksheet.getCell('A' + worksheet.rowCount).value = `Tổng số lượt ứng dụng CNTT: ${totalIT}`;
             worksheet.addRow([]);
 
-            // SỬA LỖI: Thêm phần ký tên
-            const signRow = worksheet.rowCount + 2;
+            // SỬA LỖI: Tăng khoảng trống cho phần ký tên
+            worksheet.addRow([]);
+            const signRow = worksheet.rowCount + 1;
             worksheet.mergeCells(`B${signRow}:D${signRow}`);
             const staffSignCell = worksheet.getCell(`B${signRow}`);
             staffSignCell.value = 'Nhân viên Thiết bị';
             staffSignCell.font = { bold: true };
             staffSignCell.alignment = { horizontal: 'center' };
-            worksheet.mergeCells(`B${signRow+2}:D${signRow+2}`);
-            worksheet.getCell(`B${signRow+2}`).value = 'Lê Thị Loan';
-            worksheet.getCell(`B${signRow+2}`).alignment = { horizontal: 'center' };
+            worksheet.mergeCells(`B${signRow+3}:D${signRow+3}`); // Tăng khoảng cách
+            worksheet.getCell(`B${signRow+3}`).value = 'Lê Thị Loan';
+            worksheet.getCell(`B${signRow+3}`).alignment = { horizontal: 'center' };
 
             worksheet.mergeCells(`I${signRow}:L${signRow}`);
             const teacherSignCell = worksheet.getCell(`I${signRow}`);
@@ -127,9 +153,9 @@ router.get('/excel', async (req, res) => {
             teacherSignCell.font = { bold: true };
             teacherSignCell.alignment = { horizontal: 'center' };
             if (teacherName) {
-                worksheet.mergeCells(`I${signRow+2}:L${signRow+2}`);
-                worksheet.getCell(`I${signRow+2}`).value = teacherName;
-                worksheet.getCell(`I${signRow+2}`).alignment = { horizontal: 'center' };
+                worksheet.mergeCells(`I${signRow+3}:L${signRow+3}`); // Tăng khoảng cách
+                worksheet.getCell(`I${signRow+3}`).value = teacherName;
+                worksheet.getCell(`I${signRow+3}`).alignment = { horizontal: 'center' };
             }
         }
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -141,7 +167,6 @@ router.get('/excel', async (req, res) => {
         res.status(500).send('Lỗi server khi tạo file Excel');
     }
 });
-
 // --- API 2: XUẤT FILE PDF ---
 router.get('/pdf', async (req, res) => {
     const { year, departmentId, userId } = req.query;
