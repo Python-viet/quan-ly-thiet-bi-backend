@@ -10,9 +10,10 @@ const fs = require('fs');
 require('dotenv').config();
 
 // --- HELPER FUNCTION: Lấy dữ liệu và nhóm theo tháng ---
+// Hàm này lấy dữ liệu cho cả năm để phục vụ file Excel có nhiều sheet
 async function getGroupedData(year, departmentId, userId) {
     let query = `
-        SELECT 
+        SELECT
             bf.*,
             u.full_name
         FROM borrowing_forms bf
@@ -143,7 +144,7 @@ router.get('/excel', async (req, res) => {
             staffSignCell.value = 'Nhân viên Thiết bị';
             staffSignCell.font = { bold: true };
             staffSignCell.alignment = { horizontal: 'center' };
-            worksheet.mergeCells(`B${signRow+5}:D${signRow+3}`); // Tăng khoảng cách
+            worksheet.mergeCells(`B${signRow+5}:D${signRow+5}`); // Tăng khoảng cách
             worksheet.getCell(`B${signRow+5}`).value = 'Lê Thị Loan';
             worksheet.getCell(`B${signRow+5}`).alignment = { horizontal: 'center' };
 
@@ -153,7 +154,7 @@ router.get('/excel', async (req, res) => {
             teacherSignCell.font = { bold: true };
             teacherSignCell.alignment = { horizontal: 'center' };
             if (teacherName) {
-                worksheet.mergeCells(`I${signRow+5}:L${signRow+3}`); // Tăng khoảng cách
+                worksheet.mergeCells(`I${signRow+5}:L${signRow+5}`); // Tăng khoảng cách
                 worksheet.getCell(`I${signRow+5}`).value = teacherName;
                 worksheet.getCell(`I${signRow+5}`).alignment = { horizontal: 'center' };
             }
@@ -167,11 +168,11 @@ router.get('/excel', async (req, res) => {
         res.status(500).send('Lỗi server khi tạo file Excel');
     }
 });
-// --- API 2: XUẤT FILE PDF ---
+// --- API 2: XUẤT FILE PDF --- (ĐÃ SỬA LỖI)
 router.get('/pdf', async (req, res) => {
-    const { year, departmentId, userId } = req.query;
-    if (!year || !departmentId) {
-        return res.status(400).json({ error: 'Vui lòng cung cấp năm và tổ chuyên môn.' });
+    const { year, month, departmentId, userId } = req.query; // Thêm 'month' vào
+    if (!year || !departmentId || !month) { // Yêu cầu phải có cả tháng
+        return res.status(400).json({ error: 'Vui lòng cung cấp năm, tháng và tổ chuyên môn.' });
     }
     try {
         const groupedData = await getGroupedData(year, departmentId, userId);
@@ -182,51 +183,58 @@ router.get('/pdf', async (req, res) => {
             const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
             teacherName = userQuery.rows[0]?.full_name || '';
         }
+
+        // SỬA LỖI: Lấy dữ liệu của đúng tháng đã chọn
+        const selectedMonth = parseInt(month, 10);
+        const monthData = groupedData[selectedMonth];
+
+        if (!monthData || monthData.length === 0) {
+            return res.status(404).send('Không có dữ liệu cho tháng đã chọn để xuất file PDF.');
+        }
+
         const doc = new PDFDocument({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="BaoCaoPDF_${year}.pdf"`);
+        res.setHeader('Content-Disposition', `attachment; filename="BaoCaoPDF_${month}-${year}.pdf"`);
         doc.pipe(res);
         const fontPath = path.join(__dirname, '../fonts/Roboto-Regular.ttf');
         doc.registerFont('Roboto', fontPath);
         doc.font('Roboto');
-        let isFirstPage = true;
-        for (const month in groupedData) {
-            if (!isFirstPage) {
-                doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
-            }
-            isFirstPage = false;
-            const monthData = groupedData[month];
-            doc.fontSize(16).text(`BÁO CÁO SỬ DỤNG ĐỒ DÙNG DẠY HỌC: ${departmentName.toUpperCase()}`, { align: 'center' });
-            if (teacherName) {
-                doc.fontSize(12).text(`Giáo viên: ${teacherName}`, { align: 'center' });
-            }
-            doc.moveDown(2);
-            const table = {
-                headers: ['Tháng', 'Tuần', 'Ngày mượn', 'Ngày trả', 'Thiết bị', 'SL', 'Tiết', 'Tên bài dạy', 'Lớp', 'Tình trạng', 'Lượt SD', 'UDCNTT'],
-                rows: monthData.map(row => [ month, row.week, new Date(row.borrow_date).toLocaleDateString('vi-VN'), new Date(row.return_date).toLocaleDateString('vi-VN'), row.device_name, row.quantity, row.teaching_period, row.lesson_name, row.class_name, row.device_status, row.usage_count, row.uses_it ? 'Có' : 'Không' ]),
-            };
-            await drawTable(doc, table);
-            const totalUsage = monthData.reduce((sum, row) => sum + (row.usage_count || 0), 0);
-            const totalIT = monthData.filter(row => row.uses_it).length;
-            
-            // SỬA LỖI: Nâng footer và phần ký tên lên cao hơn
-            const footerY = doc.y + 20; // Vị trí bắt đầu của footer
-            doc.fontSize(11);
-            doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, footerY);
-            doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, footerY + 15);
-            
-            const signY = footerY + 40;
-            doc.font('Roboto').fontSize(11).text('Nhân viên Thiết bị', doc.page.margins.left + 50, signY, { width: 150, align: 'center' });
-            doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.margins.left + 50, signY + 15, { width: 150, align: 'center' });
-            doc.fontSize(11).text('Lê Thị Loan', doc.page.margins.left + 50, signY + 70, { width: 150, align: 'center' });
-
-            doc.font('Roboto').fontSize(11).text('Giáo viên ký tên', doc.page.width - doc.page.margins.right - 200, signY, { width: 150, align: 'center' });
-            doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.width - doc.page.margins.right - 200, signY + 15, { width: 150, align: 'center' });
-            if (teacherName) {
-                doc.fontSize(11).text(teacherName, doc.page.width - doc.page.margins.right - 200, signY + 70, { width: 150, align: 'center' });
-            }
+        
+        // Không cần vòng lặp 'for' nữa
+        doc.fontSize(16).text(`BÁO CÁO SỬ DỤNG ĐỒ DÙNG DẠY HỌC: ${departmentName.toUpperCase()}`, { align: 'center' });
+        if (teacherName) {
+            doc.fontSize(12).text(`Giáo viên: ${teacherName}`, { align: 'center' });
         }
+        doc.moveDown(2);
+        
+        const table = {
+            headers: ['Tháng', 'Tuần', 'Ngày mượn', 'Ngày trả', 'Thiết bị', 'SL', 'Tiết', 'Tên bài dạy', 'Lớp', 'Tình trạng', 'Lượt SD', 'UDCNTT'],
+            rows: monthData.map(row => [ selectedMonth, row.week, new Date(row.borrow_date).toLocaleDateString('vi-VN'), new Date(row.return_date).toLocaleDateString('vi-VN'), row.device_name, row.quantity, row.teaching_period, row.lesson_name, row.class_name, row.device_status, row.usage_count, row.uses_it ? 'Có' : 'Không' ]),
+        };
+
+        await drawTable(doc, table);
+        
+        const totalUsage = monthData.reduce((sum, row) => sum + (row.usage_count || 0), 0);
+        const totalIT = monthData.filter(row => row.uses_it).length;
+        
+        const footerY = doc.y + 20;
+        doc.fontSize(11);
+        doc.text(`Tổng số lượt sử dụng đồ dùng: ${totalUsage}`, doc.page.margins.left, footerY);
+        doc.text(`Tổng số lượt ứng dụng CNTT: ${totalIT}`, doc.page.margins.left, footerY + 15);
+        
+        const signY = footerY + 30;
+        doc.font('Roboto').fontSize(11).text('Nhân viên Thiết bị', doc.page.margins.left + 50, signY, { width: 150, align: 'center' });
+        doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.margins.left + 50, signY + 15, { width: 150, align: 'center' });
+        doc.fontSize(11).text('Lê Thị Loan', doc.page.margins.left + 50, signY + 70, { width: 150, align: 'center' });
+
+        doc.font('Roboto').fontSize(11).text('Giáo viên ký tên', doc.page.width - doc.page.margins.right - 200, signY, { width: 150, align: 'center' });
+        doc.fontSize(10).text('(Ký, ghi rõ họ tên)', doc.page.width - doc.page.margins.right - 200, signY + 15, { width: 150, align: 'center' });
+        if (teacherName) {
+            doc.fontSize(11).text(teacherName, doc.page.width - doc.page.margins.right - 200, signY + 70, { width: 150, align: 'center' });
+        }
+        
         doc.end();
+
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Lỗi server khi tạo file PDF');
@@ -238,7 +246,7 @@ async function drawTable(doc, table) {
     let startY = doc.y;
     const startX = doc.page.margins.left;
     const rowHeight = 30;
-    const columnWidths = [30, 30, 50, 50, 120, 25, 40, 180, 55, 80, 40, 40];
+    const columnWidths = [30, 30, 50, 50, 125, 25, 40, 195, 55, 75, 40, 40];
     doc.font('Roboto').fontSize(8);
     let currentX = startX;
     table.headers.forEach((header, i) => {
