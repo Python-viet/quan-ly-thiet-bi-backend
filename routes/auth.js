@@ -36,6 +36,7 @@ router.post('/login', async (req, res) => {
         username: user.username,
         role: user.role_name,
         departmentId: user.department_id
+        fullName: user.full_name // <-- SỬA LỖI: Thêm fullName vào token
       }
     };
 
