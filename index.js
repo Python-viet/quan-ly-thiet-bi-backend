@@ -45,13 +45,16 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 
-// SỬA LỖI: Làm rõ quyền truy cập cho tất cả các vai trò
-app.use('/api/forms', authenticateToken, authorizeRoles('admin', 'manager', 'leader', 'teacher'), formRoutes);
+app.use('/api/forms', authenticateToken, formRoutes); // Cho phép mọi vai trò đã đăng nhập
+app.use('/api/dashboard', authenticateToken, dashboardRoutes); // Cho phép mọi vai trò đã đăng nhập
 
-app.use('/api/stats', authenticateToken, authorizeRoles('admin', 'manager', 'leader'), statsRoutes);
+// --- SỬA LỖI Ở 2 DÒNG DƯỚI ĐÂY ---
+// Thêm 'teacher' vào danh sách được phép
+app.use('/api/stats', authenticateToken, authorizeRoles('admin', 'manager', 'leader', 'teacher'), statsRoutes);
+app.use('/api/export', authenticateToken, authorizeRoles('admin', 'manager', 'leader', 'teacher'), exportRoutes);
+// --- KẾT THÚC SỬA LỖI ---
+
 app.use('/api/admin', authenticateToken, authorizeRoles('admin', 'manager'), adminRoutes);
-app.use('/api/export', authenticateToken, authorizeRoles('admin', 'manager', 'leader'), exportRoutes);
-app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/filters', authenticateToken, authorizeRoles('admin', 'manager', 'leader'), filtersRoutes);
 
 app.listen(PORT, () => {
