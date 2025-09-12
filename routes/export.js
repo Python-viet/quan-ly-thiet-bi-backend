@@ -10,7 +10,6 @@ const fs = require('fs');
 require('dotenv').config();
 
 // --- HELPER FUNCTION: Lấy dữ liệu và nhóm theo tháng ---
-// Hàm này lấy dữ liệu cho cả năm để phục vụ file Excel có nhiều sheet
 async function getGroupedData(year, departmentId, userId) {
     let query = `
         SELECT
@@ -50,18 +49,24 @@ async function getGroupedData(year, departmentId, userId) {
 
 // --- API 1: XUẤT FILE EXCEL ---
 router.get('/excel', async (req, res) => {
-    const { year, departmentId, userId } = req.query;
-    if (!year || !departmentId) {
-        return res.status(400).json({ error: 'Vui lòng cung cấp năm và tổ chuyên môn.' });
+    const { year, departmentId, userId: queryUserId } = req.query;
+    const { role, id: currentUserId } = req.user;
+
+    // Nếu là giáo viên, bỏ qua userId từ query và dùng ID từ token
+    const finalUserId = (role === 'teacher') ? currentUserId : queryUserId;
+    
+    // Yêu cầu departmentId chỉ khi không phải là giáo viên
+    if (!year || (!departmentId && role !== 'teacher')) {
+        return res.status(400).json({ error: 'Vui lòng cung cấp đủ thông tin.' });
     }
 
     try {
-        const groupedData = await getGroupedData(year, departmentId, userId);
+        const groupedData = await getGroupedData(year, departmentId, finalUserId);
         const departmentQuery = await pool.query('SELECT name FROM departments WHERE id = $1', [departmentId]);
         const departmentName = departmentQuery.rows[0]?.name || '';
         let teacherName = '';
-        if (userId) {
-            const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
+        if (finalUserId) {
+            const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [finalUserId]);
             teacherName = userQuery.rows[0]?.full_name || '';
         }
 
@@ -71,7 +76,6 @@ router.get('/excel', async (req, res) => {
             const monthData = groupedData[month];
             const worksheet = workbook.addWorksheet(`Tháng ${month}`);
             
-            // SỬA LỖI: Căn lề trang in
             worksheet.pageSetup = { 
                 orientation: 'landscape', 
                 paperSize: 9, // A4
@@ -111,7 +115,6 @@ router.get('/excel', async (req, res) => {
                 });
             });
             
-            // SỬA LỖI: Điều chỉnh độ rộng cột
             worksheet.columns = [
                 { key: 'Tháng', width: 5.7 },
                 { key: 'Tuần', width: 5.7 },
@@ -135,8 +138,6 @@ router.get('/excel', async (req, res) => {
             worksheet.mergeCells('A' + (worksheet.rowCount + 1) + ':L' + (worksheet.rowCount + 1));
             worksheet.getCell('A' + worksheet.rowCount).value = `Tổng số lượt ứng dụng CNTT: ${totalIT}`;
             worksheet.addRow([]);
-
-            // SỬA LỖI: Tăng khoảng trống cho phần ký tên
             worksheet.addRow([]);
             const signRow = worksheet.rowCount + 1;
             worksheet.mergeCells(`B${signRow}:D${signRow}`);
@@ -144,17 +145,16 @@ router.get('/excel', async (req, res) => {
             staffSignCell.value = 'Nhân viên Thiết bị';
             staffSignCell.font = { bold: true };
             staffSignCell.alignment = { horizontal: 'center' };
-            worksheet.mergeCells(`B${signRow+5}:D${signRow+5}`); // Tăng khoảng cách
+            worksheet.mergeCells(`B${signRow+5}:D${signRow+5}`);
             worksheet.getCell(`B${signRow+5}`).value = 'Lê Thị Loan';
             worksheet.getCell(`B${signRow+5}`).alignment = { horizontal: 'center' };
-
             worksheet.mergeCells(`I${signRow}:L${signRow}`);
             const teacherSignCell = worksheet.getCell(`I${signRow}`);
             teacherSignCell.value = 'Giáo viên ký tên';
             teacherSignCell.font = { bold: true };
             teacherSignCell.alignment = { horizontal: 'center' };
             if (teacherName) {
-                worksheet.mergeCells(`I${signRow+5}:L${signRow+5}`); // Tăng khoảng cách
+                worksheet.mergeCells(`I${signRow+5}:L${signRow+5}`);
                 worksheet.getCell(`I${signRow+5}`).value = teacherName;
                 worksheet.getCell(`I${signRow+5}`).alignment = { horizontal: 'center' };
             }
@@ -168,23 +168,27 @@ router.get('/excel', async (req, res) => {
         res.status(500).send('Lỗi server khi tạo file Excel');
     }
 });
-// --- API 2: XUẤT FILE PDF --- (ĐÃ SỬA LỖI)
+
+// --- API 2: XUẤT FILE PDF ---
 router.get('/pdf', async (req, res) => {
-    const { year, month, departmentId, userId } = req.query; // Thêm 'month' vào
-    if (!year || !departmentId || !month) { // Yêu cầu phải có cả tháng
-        return res.status(400).json({ error: 'Vui lòng cung cấp năm, tháng và tổ chuyên môn.' });
+    const { year, month, departmentId, userId: queryUserId } = req.query;
+    const { role, id: currentUserId } = req.user;
+
+    const finalUserId = (role === 'teacher') ? currentUserId : queryUserId;
+    
+    if (!year || !month || (!departmentId && role !== 'teacher')) {
+        return res.status(400).json({ error: 'Vui lòng cung cấp đủ thông tin.' });
     }
     try {
-        const groupedData = await getGroupedData(year, departmentId, userId);
+        const groupedData = await getGroupedData(year, departmentId, finalUserId);
         const departmentQuery = await pool.query('SELECT name FROM departments WHERE id = $1', [departmentId]);
         const departmentName = departmentQuery.rows[0]?.name || '';
         let teacherName = '';
-        if (userId) {
-            const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [userId]);
+        if (finalUserId) {
+            const userQuery = await pool.query('SELECT full_name FROM users WHERE id = $1', [finalUserId]);
             teacherName = userQuery.rows[0]?.full_name || '';
         }
 
-        // SỬA LỖI: Lấy dữ liệu của đúng tháng đã chọn
         const selectedMonth = parseInt(month, 10);
         const monthData = groupedData[selectedMonth];
 
@@ -200,7 +204,6 @@ router.get('/pdf', async (req, res) => {
         doc.registerFont('Roboto', fontPath);
         doc.font('Roboto');
         
-        // Không cần vòng lặp 'for' nữa
         doc.fontSize(16).text(`BÁO CÁO SỬ DỤNG ĐỒ DÙNG DẠY HỌC: ${departmentName.toUpperCase()}`, { align: 'center' });
         if (teacherName) {
             doc.fontSize(12).text(`Giáo viên: ${teacherName}`, { align: 'center' });
@@ -265,7 +268,6 @@ async function drawTable(doc, table) {
             }
         });
         const calculatedRowHeight = Math.max(rowHeight, maxRowHeight + 10);
-        // SỬA LỖI: Tăng khoảng trống dự trữ cho footer
         if (doc.y + calculatedRowHeight > doc.page.height - doc.page.margins.bottom - 150) { 
             doc.addPage({ layout: 'landscape', size: 'A4', margins: { top: 40, bottom: 40, left: 40, right: 40 } });
             doc.y = doc.page.margins.top;
