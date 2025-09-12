@@ -5,8 +5,9 @@ require('dotenv').config();
 
 // API lấy dữ liệu thống kê
 router.get('/', async (req, res) => {
-  const { year, month, departmentId, userId } = req.query;
-  const { role, departmentId: userDepartmentId } = req.user;
+  // Lấy thêm userId từ token
+  const { year, month, departmentId, userId: queryUserId } = req.query; // Đổi tên userId từ query để tránh trùng lặp
+  const { role, departmentId: userDepartmentId, id: currentUserId } = req.user; // Lấy id của user đang đăng nhập
 
   try {
     let query = `
@@ -29,11 +30,18 @@ router.get('/', async (req, res) => {
       query += ` AND EXTRACT(MONTH FROM bf.borrow_date) = $${params.length}`;
     }
 
-    if (role === 'leader') {
+    // --- BỔ SUNG LOGIC CHO GIÁO VIÊN ---
+    if (role === 'teacher') {
+      // Bắt buộc lọc theo ID của giáo viên đang đăng nhập
+      params.push(currentUserId);
+      query += ` AND bf.user_id = $${params.length}`;
+    }
+    // --- KẾT THÚC BỔ SUNG ---
+    else if (role === 'leader') {
       params.push(userDepartmentId);
       query += ` AND u.department_id = $${params.length}`;
-      if (userId) { // Leader có thể lọc theo giáo viên trong tổ
-        params.push(userId);
+      if (queryUserId) { // Leader có thể lọc theo giáo viên trong tổ
+        params.push(queryUserId);
         query += ` AND bf.user_id = $${params.length}`;
       }
     } else if (role === 'manager' || role === 'admin') {
@@ -41,8 +49,8 @@ router.get('/', async (req, res) => {
         params.push(departmentId);
         query += ` AND u.department_id = $${params.length}`;
       }
-      if (userId) {
-        params.push(userId);
+      if (queryUserId) {
+        params.push(queryUserId);
         query += ` AND bf.user_id = $${params.length}`;
       }
     }
