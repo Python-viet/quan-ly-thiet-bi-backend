@@ -69,7 +69,107 @@ router.put('/users/:id/reset-password', async (req, res) => {
     }
 });
 
-// --- API 4: LẤY DANH SÁCH TỔ CHUYÊN MÔN ---
+// --- API 4: THAY ĐỔI VAI TRÒ NGƯỜI DÙNG ---
+// PUT /api/admin/users/:id/role
+// Chỉ Admin được thực hiện. Không cho phép gán hoặc chỉnh sửa vai trò admin.
+router.put('/users/:id/role', async (req, res) => {
+    const { id: userId } = req.params;
+    const { role, department_id } = req.body;
+    const allowedRoles = ['manager', 'leader', 'teacher'];
+
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Chỉ quản trị viên mới được thay đổi vai trò.' });
+    }
+
+    if (!allowedRoles.includes(role)) {
+        return res.status(400).json({
+            error: 'Vai trò không hợp lệ. Chỉ được chọn manager, leader hoặc teacher.'
+        });
+    }
+
+    const parsedUserId = Number(userId);
+    const parsedDepartmentId = department_id ? Number(department_id) : null;
+
+    if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
+        return res.status(400).json({ error: 'Mã người dùng không hợp lệ.' });
+    }
+
+    if ((role === 'leader' || role === 'teacher') && !parsedDepartmentId) {
+        return res.status(400).json({ error: 'Vui lòng chọn tổ chuyên môn cho giáo viên hoặc tổ trưởng.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const targetResult = await client.query(
+            `SELECT u.id, u.username, r.name AS role
+             FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE u.id = $1
+             FOR UPDATE`,
+            [parsedUserId]
+        );
+
+        if (targetResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+        }
+
+        const targetUser = targetResult.rows[0];
+        if (targetUser.role === 'admin') {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Không được thay đổi vai trò của tài khoản Admin.' });
+        }
+
+        const roleResult = await client.query(
+            'SELECT id, name FROM roles WHERE name = $1',
+            [role]
+        );
+        if (roleResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Vai trò được chọn chưa tồn tại trong hệ thống.' });
+        }
+
+        if (parsedDepartmentId) {
+            const departmentResult = await client.query(
+                'SELECT id FROM departments WHERE id = $1',
+                [parsedDepartmentId]
+            );
+            if (departmentResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Tổ chuyên môn được chọn không tồn tại.' });
+            }
+        }
+
+        const effectiveDepartmentId = role === 'manager' ? null : parsedDepartmentId;
+        const updatedResult = await client.query(
+            `UPDATE users
+             SET role_id = $1, department_id = $2
+             WHERE id = $3
+             RETURNING id, username, full_name, department_id`,
+            [roleResult.rows[0].id, effectiveDepartmentId, parsedUserId]
+        );
+
+        await client.query('COMMIT');
+
+        res.json({
+            message: `Đã thay đổi vai trò của ${targetUser.username} thành ${role}.`,
+            user: {
+                ...updatedResult.rows[0],
+                role
+            }
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Lỗi thay đổi vai trò:', err);
+        res.status(500).json({ error: 'Không thể thay đổi vai trò người dùng.' });
+    } finally {
+        client.release();
+    }
+});
+
+// --- API 5: LẤY DANH SÁCH TỔ CHUYÊN MÔN ---
 router.get('/departments', async (req, res) => {
   try {
     const departments = await pool.query('SELECT * FROM departments ORDER BY name');
