@@ -241,8 +241,7 @@ router.get('/pdf', async (req, res) => {
             ])
         };
 
-        const footerHeight = teacherName ? 102 : 88;
-        const tableEndY = drawTable(doc, table, pageOptions, footerHeight);
+        const tableEndY = drawTable(doc, table, pageOptions);
 
         const totalUsage = monthData.reduce((sum, row) => sum + (Number(row.usage_count) || 0), 0);
         const totalIT = monthData.filter(row => row.uses_it).length;
@@ -266,16 +265,17 @@ router.get('/pdf', async (req, res) => {
 });
 
 // --- HELPER FUNCTION: Vẽ bảng trong PDF ---
-function drawTable(doc, table, pageOptions, reservedFooterHeight) {
+function drawTable(doc, table, pageOptions) {
     const startX = doc.page.margins.left;
     const minimumRowHeight = 26;
     const headerHeight = 28;
-    const columnWidths = [30, 30, 52, 52, 123, 25, 40, 190, 52, 74, 42, 42];
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const columnsWidth = columnWidths.reduce((sum, width) => sum + width, 0);
 
-    // Phân bổ phần chiều rộng còn dư để bảng luôn cân đối đúng khổ giấy.
-    columnWidths[columnWidths.length - 1] += contentWidth - columnsWidth;
+    // Khóa các cột ngắn ở mức vừa đủ và dành toàn bộ chiều rộng còn lại
+    // cho cột "Tên bài dạy". Tổng chiều rộng luôn đúng bằng vùng in A4 ngang.
+    const columnWidths = [30, 30, 52, 52, 123, 25, 40, 0, 52, 74, 42, 34];
+    const fixedColumnsWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+    columnWidths[7] = contentWidth - fixedColumnsWidth;
 
     const drawTextInCell = ({ text, x, y, width, height, align = 'left', fontSize = 7.5, paddingX = 3, lineGap = 1 }) => {
         const safeText = String(text ?? '');
@@ -335,7 +335,9 @@ function drawTable(doc, table, pageOptions, reservedFooterHeight) {
             });
         });
         const calculatedRowHeight = Math.max(minimumRowHeight, Math.max(...cellHeights) + 8);
-        const pageLimit = doc.page.height - doc.page.margins.bottom - reservedFooterHeight;
+        // Không giữ sẵn vùng ký tên trên các trang giữa. Bảng được sử dụng hết
+        // vùng in; phần cuối báo cáo sẽ tự sang trang nếu thực sự không đủ chỗ.
+        const pageLimit = doc.page.height - doc.page.margins.bottom;
 
         if (doc.y + calculatedRowHeight > pageLimit) {
             doc.addPage(pageOptions);
