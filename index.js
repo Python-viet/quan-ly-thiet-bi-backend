@@ -3,6 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const restoreRoutes = require('./routes/restore');
 require('dotenv').config();
 
 // --- KIỂM TRA BIẾN MÔI TRƯỜNG KHI KHỞI ĐỘNG ---
@@ -60,3 +61,10 @@ app.use('/api/filters', authenticateToken, authorizeRoles('admin', 'manager', 'l
 app.listen(PORT, () => {
   console.log(`Server đang chạy tại http://localhost:${PORT}`);
 });
+// --- CHỨC NĂNG KHÔI PHỤC DỮ LIỆU ---
+app.use(
+  '/api/admin/restore',
+  authenticateToken,
+  authorizeRoles('admin'),
+  restoreRoutes
+);
