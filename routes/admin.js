@@ -181,27 +181,34 @@ router.post('/backup', async (req, res) => {
 
 // --- API 10: KHỞI TẠO NĂM HỌC MỚI ---
 // POST /api/admin/new-year
+// Xóa vĩnh viễn toàn bộ phiếu mượn hiện hành và đã lưu trữ.
+// Không tác động đến users, roles hoặc departments.
 router.post('/new-year', async (req, res) => {
     const client = await pool.connect();
-    try {
-        await client.query('BEGIN'); // Bắt đầu một transaction
 
-        // 1. Sao chép tất cả dữ liệu từ borrowing_forms sang archived_borrowing_forms
+    try {
+        await client.query('BEGIN');
+
+        // TRUNCATE giải phóng dữ liệu nhanh hơn DELETE và đặt lại bộ đếm ID.
+        // Hai bảng được xử lý trong cùng transaction để tránh trạng thái xóa dở dang.
         await client.query(`
-            INSERT INTO archived_borrowing_forms 
-            SELECT * FROM borrowing_forms
+            TRUNCATE TABLE
+                borrowing_forms,
+                archived_borrowing_forms
+            RESTART IDENTITY
         `);
 
-        // 2. Xóa tất cả dữ liệu khỏi borrowing_forms
-        await client.query('TRUNCATE TABLE borrowing_forms');
+        await client.query('COMMIT');
 
-        await client.query('COMMIT'); // Hoàn tất transaction
-        res.json({ message: 'Đã khởi tạo năm học mới thành công! Dữ liệu cũ đã được lưu trữ.' });
-
+        res.json({
+            message: 'Đã khởi tạo năm học mới. Toàn bộ phiếu mượn hiện hành và đã lưu trữ đã được xóa; tài khoản và tổ chuyên môn vẫn được giữ nguyên.'
+        });
     } catch (err) {
-        await client.query('ROLLBACK'); // Hoàn tác nếu có lỗi
-        console.error(err.message);
-        res.status(500).send('Lỗi server khi khởi tạo năm học mới.');
+        await client.query('ROLLBACK');
+        console.error('Lỗi khi khởi tạo năm học mới:', err);
+        res.status(500).json({
+            error: 'Không thể khởi tạo năm học mới. Dữ liệu chưa bị thay đổi.'
+        });
     } finally {
         client.release();
     }
